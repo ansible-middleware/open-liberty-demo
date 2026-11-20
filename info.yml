@@ -1,0 +1,14 @@
+---
+- name: "Query the deployed application on {{ inventory_hostname }}"
+  ansible.builtin.uri:
+    url: "http://localhost:{{ openliberty_http_port }}{{ app.context_root | default('/hello') }}/"
+    return_content: true
+  register: info_res
+  until: info_res.status == 200
+  retries: 24
+  delay: 5
+  changed_when: false
+
+- name: "Display application response"
+  ansible.builtin.debug:
+    msg: "{{ info_res.content | trim | split('\n') }}"

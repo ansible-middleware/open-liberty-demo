@@ -1,0 +1,6 @@
+---
+# Settings shared by every playbook in this demo. Keep the port here (not with
+# -e on a single run) so playbook.yml, port_config.yml, upgrade.yml and the
+# validation tasks always agree on where Open Liberty is listening.
+openliberty_server_name: demoServer
+openliberty_http_port: 9080

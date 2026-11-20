@@ -1,0 +1,56 @@
+---
+# Move Open Liberty to a new HTTP port with the port_config role.
+#   1. Set openliberty_http_port in group_vars/all.yml (e.g. 8080)
+#   2. ansible-playbook -i inventory port_config.yml
+- name: "Reconfigure Open Liberty HTTP port"
+  hosts: "{{ hosts_group_name | default('liberty_servers') }}"
+  remote_user: root
+  become: true
+  vars:
+    # openliberty_server_name / openliberty_http_port: see group_vars/all.yml
+    openliberty_https_enabled: false
+    # Opens the new port in firewalld (RHEL) or ufw (Debian/Ubuntu).
+    # The role does not close the old port; remove that rule yourself.
+    openliberty_firewall_port_manage: false
+    openliberty_validate_health_endpoint: true
+    _server_dir: "/opt/openliberty/wlp/usr/servers/{{ openliberty_server_name }}"
+    app:
+      context_root: /hello
+
+  pre_tasks:
+    - name: "Check for an existing port_config override"
+      ansible.builtin.stat:
+        path: "{{ _server_dir }}/configDropins/overrides/port_config.xml"
+      register: _port_override
+
+    - name: "Read the current Open Liberty endpoint configuration"
+      ansible.builtin.slurp:
+        src: "{{ _server_dir }}/{{ 'configDropins/overrides/port_config.xml' if _port_override.stat.exists else 'server.xml' }}"
+      register: _current_config
+
+    - name: "Record the current HTTP port"
+      ansible.builtin.set_fact:
+        previous_http_port: "{{ (_current_config.content | b64decode | regex_search('httpPort=\"([0-9]+)\"', '\\1') | first) | int }}"
+
+    - name: "Show the planned change"
+      ansible.builtin.debug:
+        msg: "HTTP port {{ previous_http_port }} -> {{ openliberty_http_port }}"
+
+  roles:
+    - role: middleware_automation.open_liberty.port_config
+
+  # Handlers (the Open Liberty restart) are flushed before post_tasks run.
+  post_tasks:
+    - name: "Validate Open Liberty on the new port"
+      ansible.builtin.include_role:
+        name: middleware_automation.open_liberty.validation
+
+    - name: "Show application output on the new port"
+      ansible.builtin.include_tasks: info.yml
+
+    - name: "Check the old HTTP port is closed"
+      ansible.builtin.wait_for:
+        port: "{{ previous_http_port | int }}"
+        state: stopped
+        timeout: 30
+      when: previous_http_port | int != openliberty_http_port | int

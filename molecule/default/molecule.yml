@@ -1,0 +1,49 @@
+---
+driver:
+  name: docker
+platforms:
+  - name: liberty-node-1
+    image: registry.access.redhat.com/ubi9/ubi-init:latest
+    pre_build_image: true
+    privileged: true
+    command: "/usr/sbin/init"
+    groups:
+      - liberty_servers
+    published_ports:
+      - 0.0.0.0:9080:9080/TCP
+  - name: liberty-node-2
+    image: registry.access.redhat.com/ubi9/ubi-init:latest
+    pre_build_image: true
+    privileged: true
+    command: "/usr/sbin/init"
+    groups:
+      - liberty_servers
+    published_ports:
+      - 0.0.0.0:9180:9080/TCP
+provisioner:
+  name: ansible
+  config_options:
+    defaults:
+      interpreter_python: auto_silent
+      remote_tmp: /tmp/.ansible/tmp
+    ssh_connection:
+      pipelining: false
+  playbooks:
+    prepare: prepare.yml
+    converge: ../../playbook.yml
+    verify: verify.yml
+verifier:
+  name: ansible
+scenario:
+  test_sequence:
+    - cleanup
+    - destroy
+    - syntax
+    - create
+    - prepare
+    - converge
+    - idempotence
+    - side_effect
+    - verify
+    - cleanup
+    - destroy

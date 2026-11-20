@@ -1,0 +1,67 @@
+---
+- name: "Open Liberty installation, configuration and application deployment"
+  hosts: "{{ hosts_group_name | default('liberty_servers') }}"
+  remote_user: root
+  become: true
+  vars:
+    # --- install ---------------------------------------------------------
+    openliberty_version: "{{ override_openliberty_version | default('24.0.0.9') }}"
+    openliberty_edition: webProfile
+    openliberty_install_java: true
+    openliberty_java_version: "21"
+
+    # --- server_config ---------------------------------------------------
+    # openliberty_server_name / openliberty_http_port: see group_vars/all.yml
+    openliberty_server_description: "Open Liberty demo server managed by Ansible"
+    # webProfile-10.0 is added automatically; mpHealth gives us a /health endpoint.
+    openliberty_extra_features:
+      - mpHealth-4.0
+    openliberty_jvm_options:
+      - "-Xms256m"
+      - "-Xmx512m"
+    openliberty_configure_logging: true
+    openliberty_log_level: "AUDIT"
+
+    # --- systemd ---------------------------------------------------------
+    openliberty_service_env_vars:
+      - key: APP_ENV
+        value: demo
+      - key: DEMO_NODE_NAME
+        value: "{{ inventory_hostname }}"
+
+    # --- app_deploy ------------------------------------------------------
+    app:
+      name: hello-liberty
+      src_dir: "{{ playbook_dir }}/app/hello-liberty"
+      war: "{{ playbook_dir }}/app/hello-liberty.war"
+      context_root: /hello
+    openliberty_applications:
+      - name: "{{ app.name }}"
+        src: "{{ app.war }}"
+        context_root: "{{ app.context_root }}"
+        state: present
+
+    # --- validation ------------------------------------------------------
+    openliberty_validate_health_endpoint: true
+    openliberty_health_url_path: "/health"
+
+  pre_tasks:
+    - name: "Package the sample application on the controller: {{ app.name }}"
+      ansible.builtin.command:
+        cmd: "{{ ansible_playbook_python }} -m zipfile -c {{ app.war }} index.jsp WEB-INF"
+        chdir: "{{ app.src_dir }}"
+        creates: "{{ app.war }}"
+      delegate_to: localhost
+      become: false
+      run_once: true  # noqa: run-once[task]
+
+  roles:
+    - role: middleware_automation.open_liberty.install
+    - role: middleware_automation.open_liberty.server_config
+    - role: middleware_automation.open_liberty.systemd
+    - role: middleware_automation.open_liberty.app_deploy
+    - role: middleware_automation.open_liberty.validation
+
+  post_tasks:
+    - name: "Verify that the deployment is functional"
+      ansible.builtin.include_tasks: validate.yml

@@ -1,0 +1,12 @@
+---
+- name: Prepare UBI containers for Open Liberty
+  hosts: all
+  gather_facts: false
+  tasks:
+    # server_config runs "server create" as the liberty user (become_user),
+    # which needs sudo even when connected as root.
+    - name: Install sudo and unzip
+      ansible.builtin.raw: >
+        (command -v sudo >/dev/null && command -v unzip >/dev/null) ||
+        dnf install -y sudo unzip
+      changed_when: false

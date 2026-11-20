@@ -1,0 +1,12 @@
+---
+# Decommission Open Liberty (service, unit file, install dir, user/group).
+#   ansible-playbook -i inventory uninstall.yml
+- name: "Decommission Open Liberty"
+  hosts: "{{ hosts_group_name | default('liberty_servers') }}"
+  remote_user: root
+  become: true
+  vars:
+    openliberty_remove_user: true
+    openliberty_remove_group: true
+  roles:
+    - role: middleware_automation.open_liberty.uninstall

@@ -1,0 +1,26 @@
+---
+# Rolling in-place upgrade of Open Liberty, then validation, in a single play.
+#   ansible-playbook -i inventory upgrade.yml
+#
+# Note: version_update calls `meta: end_host` when a host is already at or above
+# the target version, which ends the play for that host. On such no-op re-runs
+# the validation role and the info.yml task below are therefore skipped for that
+# host (they still run whenever an actual upgrade happens).
+- name: "Upgrade Open Liberty fleet"
+  hosts: "{{ hosts_group_name | default('liberty_servers') }}"
+  remote_user: root
+  become: true
+  serial: 1
+  vars:
+    openliberty_new_version: "{{ override_openliberty_new_version | default('24.0.0.12') }}"
+    openliberty_edition: webProfile
+    openliberty_update_backup: true
+    openliberty_validate_health_endpoint: true
+    app:
+      context_root: /hello
+  roles:
+    - role: middleware_automation.open_liberty.version_update
+    - role: middleware_automation.open_liberty.validation
+  tasks:
+    - name: "Show application output after upgrade"
+      ansible.builtin.include_tasks: info.yml

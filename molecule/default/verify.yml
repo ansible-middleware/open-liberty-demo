@@ -1,0 +1,24 @@
+---
+- name: Verify Open Liberty demo
+  hosts: all
+  gather_facts: false
+  vars:
+    openliberty_http_port: 9080
+    openliberty_health_url_path: /health
+    app:
+      context_root: /hello
+  tasks:
+    - name: Check service is active
+      ansible.builtin.systemd:
+        name: openliberty-demoServer
+      register: svc
+      failed_when: svc.status.ActiveState != 'active'
+
+    - name: Run demo validation
+      ansible.builtin.include_tasks: ../../validate.yml
+
+    - name: Assert application response comes from Open Liberty
+      ansible.builtin.assert:
+        that:
+          - "'Hello from Open Liberty' in info_res.content"
+          - "inventory_hostname in info_res.content"

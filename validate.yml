@@ -1,0 +1,22 @@
+---
+- name: "Wait for the configured HTTP port to be available"
+  ansible.builtin.wait_for:
+    port: "{{ openliberty_http_port }}"
+    timeout: 120
+
+- name: "Check that Open Liberty is running and accessible on port {{ openliberty_http_port }}"
+  ansible.builtin.uri:
+    url: "http://localhost:{{ openliberty_http_port }}/"
+    status_code: 200
+  changed_when: false
+
+- name: "Check MicroProfile Health endpoint reports UP"
+  ansible.builtin.uri:
+    url: "http://localhost:{{ openliberty_http_port }}{{ openliberty_health_url_path | default('/health') }}"
+    return_content: true
+  register: health_res
+  changed_when: false
+  failed_when: health_res.json.status | default('') != 'UP'
+
+- name: "Show application output"
+  ansible.builtin.include_tasks: info.yml

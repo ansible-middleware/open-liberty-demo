@@ -1,0 +1,7 @@
+---
+collections:
+  - name: community.general
+  - name: community.docker
+  - name: ansible.posix
+  - name: middleware_automation.open_liberty
+    version: ">=1.0.1"

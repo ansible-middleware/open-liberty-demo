@@ -1,0 +1,3 @@
+app/*.war
+.idea/
+.DS_Store
